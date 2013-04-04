@@ -7,10 +7,10 @@ var spokeId = "dbbambfkcknfdgochdhdddakdlihifpg";
  * @param fn {function}
  */
 var spoke = function(req,fn) {
-	//append our id
-	req.id = appId;
-	//send the message to spoke. 
-	chrome.runtime.sendMessage(spokeId,req,fn);
+	console.log('incoming',req);
+	if(!spoke.handle(req,fn)) {
+		chrome.runtime.sendMessage(spokeId,req,fn);
+	}
 };
 
 var test = false;
@@ -21,7 +21,7 @@ if(test) {
 	}
 }
 
-spoke.handlers = {};
+spoke.registry = [];
 
 /**
  * Register a handler through spoke
@@ -32,10 +32,8 @@ spoke.register = function(req,fn) {
 	//identify this as a registration request
 	req.register = true;
 	//store callback locally
-	if(!(req.verb in spoke.handlers)) {
-		spoke.handlers[req.verb] = {};
-	}
-	spoke.handlers[req.verb][req.noun] = fn;
+	req.fn = fn;
+	spoke.registry.push(req);
 
 	//send off the registration request. Spoke will then come back here when a request we can handle occurs, and we'll access our handler.
 	spoke(req);
@@ -48,9 +46,11 @@ spoke.register = function(req,fn) {
  * @param fn {function}
  */
 spoke.handle = function(req, fn) {
-	console.log('handle');
-	if(req.verb in spoke.handlers && req.noun in spoke.handlers[req.verb]) {
-		spoke.handlers[req.noun][req.verb](req,fn);
+	for(var i in this.registry) {
+		var handler = this.registry[i];
+		if(minimatch(req.noun,handler.noun) && req.verb === handler.verb) {
+			return handler.fn(req,fn);
+		}
 	}
 };
 
